@@ -5,7 +5,10 @@ const app = express();
 const PORT = 3001;
 
 app.use(cors({
-  origin: "*",
+  origin: [
+    "http://localhost:5173",
+    "https://mcpfrontend-f778o0inx-gaurav-rams-projects.vercel.app"
+  ],
   methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type"]
 }));
