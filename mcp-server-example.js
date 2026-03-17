@@ -4,31 +4,43 @@ import cors from "cors";
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
-const allowedOrigins = new Set([
-  "http://localhost:5173",
-  "https://mcpfrontend-eta.vercel.app",
-  "https://mcpfrontend-f778o0inx-gaurav-rams-projects.vercel.app",
-]);
-
-app.use(
-  cors({
-    origin(origin, callback) {
-      // Allow non-browser clients (no Origin header)
-      if (!origin) return callback(null, true);
-
-      // Allow listed origins + Vercel preview/prod deployments
-      const isAllowed =
-        allowedOrigins.has(origin) ||
-        /^https:\/\/mcpfrontend-.*\.vercel\.app$/i.test(origin) ||
-        /^https:\/\/.*-gaurav-rams-projects\.vercel\.app$/i.test(origin);
-
-      if (isAllowed) return callback(null, true);
-      return callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"],
-  })
+const allowedOrigins = new Set(
+  [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://mcpfrontend-eta.vercel.app",
+    "https://mcpfrontend-f778o0inx-gaurav-rams-projects.vercel.app",
+    ...(process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
+      : []),
+  ].map((o) => o.replace(/\/+$/, ""))
 );
+
+const corsMiddleware = cors({
+  origin(origin, callback) {
+    // Allow non-browser clients (no Origin header)
+    if (!origin) return callback(null, true);
+
+    const normalized = origin.replace(/\/+$/, "");
+    const allowAll = process.env.CORS_ALLOW_ALL === "true";
+
+    // Allow listed origins + common preview deployment hosts
+    const isAllowed =
+      allowAll ||
+      allowedOrigins.has(normalized) ||
+      /^https:\/\/mcpfrontend-.*\.vercel\.app$/i.test(normalized) ||
+      /^https:\/\/.*-gaurav-rams-projects\.vercel\.app$/i.test(normalized) ||
+      /^https:\/\/.*\.onrender\.com$/i.test(normalized);
+
+    if (isAllowed) return callback(null, true);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+});
+
+app.use(corsMiddleware);
+app.options("*", corsMiddleware);
 app.use(express.json());
 app.use((err, _req, res, next) => {
   // If the client sends invalid JSON, Express will throw a SyntaxError.
