@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 
 const app = express();
-const PORT = 3001;
+const PORT = Number(process.env.PORT) || 3001;
 
 app.use(cors({
   origin: [
@@ -14,6 +14,17 @@ app.use(cors({
   allowedHeaders: ["Content-Type"]
 }));
 app.use(express.json());
+app.use((err, _req, res, next) => {
+  // If the client sends invalid JSON, Express will throw a SyntaxError.
+  // Return a clean JSON response instead of the default HTML error page.
+  if (err instanceof SyntaxError && "body" in err) {
+    return res.status(400).json({
+      error: "Invalid JSON in request body",
+      hint: "Send Content-Type: application/json with a valid JSON payload",
+    });
+  }
+  return next(err);
+});
 
 const tools = [
   {
@@ -319,6 +330,17 @@ app.post("/invoke", (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`MCP Server running on http://localhost:${PORT}`);
+});
+
+server.on("error", (err) => {
+  if (err?.code === "EADDRINUSE") {
+    console.error(
+      `Port ${PORT} is already in use. Stop the other process or start with a different port, e.g. PORT=3002 npm start`
+    );
+    process.exit(1);
+  }
+  console.error(err);
+  process.exit(1);
 });
